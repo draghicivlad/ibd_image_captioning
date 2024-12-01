@@ -1,0 +1,16 @@
+data_root_path: "../data/flickr30k"
+
+encoder:
+  name: "resnet18"
+  latent_dim: 256
+
+decoder:
+  name: "lstm"
+  embed_size: 256
+  hidden_size: 512
+  num_layers: 2
+  dropout_prob: 0.5
+
+lr: 0.001
+epochs: 10
+batch_size: 32
