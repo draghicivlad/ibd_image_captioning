@@ -47,7 +47,7 @@ def init_model(config, vocab):
 def init_logging():
 
     # LOGGER
-    logger_path = os.path.join("outputs", "logs")
+    logger_path = os.path.join("..", "outputs", "logs")
     logger = TensorBoardLogger(logger_path)
 
     # CALLBACKS
@@ -55,7 +55,7 @@ def init_logging():
     callbacks.append(
         ModelCheckpoint(
             monitor="val_loss",
-            dirpath=os.path.join("outputs", "ckpts"),
+            dirpath=os.path.join("..", "outputs", "ckpts"),
             filename='model-{epoch:02d}',
             mode="min",
         )
