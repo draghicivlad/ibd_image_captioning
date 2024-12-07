@@ -75,6 +75,8 @@ class Baseline(L.LightningModule):
         )
         self.log("train_loss", loss)
 
+        return loss
+
     def validation_step(self, batch, batch_idx):
         images, captions = batch
         targets_input = captions[:, :-1].contiguous()
