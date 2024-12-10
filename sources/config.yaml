@@ -11,6 +11,14 @@ decoder:
   num_layers: 2
   dropout_prob: 0.5
 
+#decoder:
+#  name: "transformer"
+#  d_model: 256
+#  d_ff: 512
+#  nheads: 4
+#  num_layers: 2
+#  dropout_prob: 0.5
+
 lr: 0.001
 epochs: 10
 batch_size: 32

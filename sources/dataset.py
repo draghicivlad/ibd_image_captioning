@@ -13,15 +13,19 @@ def make_collater(vocab):
     def collate_fn(data):
         images = []
         captions = []
+        pad_masks = []
 
-        for image, caption in data:
+        max_len = max([x.shape[0] for (_, _, x) in data])
+        for image, caption, pad_mask in data:
             images.append(image)
             captions.append(torch.tensor(caption, dtype=torch.long))
+            pad_masks.append(torch.cat((pad_mask, torch.zeros(max_len - pad_mask.shape[0])), dim=-1))
 
         images = torch.stack(images)
         captions_padded = pad_sequence(captions, batch_first=True, padding_value=pad_value)
+        pad_masks = torch.stack(pad_masks)
 
-        return images, captions_padded
+        return images, captions_padded, pad_masks
 
     return collate_fn
 
@@ -61,4 +65,8 @@ class Flickr30k(data.Dataset):
         movie_name = combined_id.split('#')[0]
         image = Image.open(os.path.join(self.root_path, self.movie_dir, movie_name))
 
-        return self.transforms(image), [self.vocab.stoi("<SOS>")] + [self.vocab.stoi(idx) for idx in caption.split()] + [self.vocab.stoi("<EOS>")]
+        return (
+            self.transforms(image),
+            [self.vocab.stoi("<SOS>")] + [self.vocab.stoi(idx) for idx in caption.split()] + [self.vocab.stoi("<EOS>")],
+            torch.ones(len(caption.split()) + 2)
+        )
