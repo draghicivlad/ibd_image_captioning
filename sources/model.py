@@ -137,6 +137,40 @@ class Baseline(L.LightningModule):
 
         return loss
 
+    def test_step(self, batch, batch_idx):
+        """
+        This method defines what happens in a single batch during testing.
+        """
+        images, captions, pad_mask = batch
+        targets_input = captions
+        targets_output = captions
+
+        # Forward pass
+        preds = self.forward(images=images, captions=targets_input, pad_mask=pad_mask)
+
+        # Compute the loss
+        loss = torch.nn.functional.cross_entropy(
+            preds.view(-1, len(self.vocab)),
+            targets_output.view(-1),
+            ignore_index=self.vocab.stoi("<PAD>")
+        )
+
+        # Compute perplexity (optional, if you want it logged during testing)
+        self.perplexity.update(preds, targets_output)
+
+        # Log the test loss
+        self.log("test_loss", loss, prog_bar=True)
+
+        return {"test_loss": loss}
+
+    def on_test_epoch_end(self):
+        """
+        This method computes metrics after all test batches have been processed.
+        """
+        test_perplexity = self.perplexity.compute()
+        self.log("test_perplexity", test_perplexity, prog_bar=True)
+        self.perplexity.reset()
+
     def validation_step(self, batch, batch_idx):
         images, captions, pad_mask = batch
         targets_input = captions
