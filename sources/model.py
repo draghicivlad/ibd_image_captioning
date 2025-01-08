@@ -230,10 +230,15 @@ class Baseline(L.LightningModule):
                 captions = torch.tensor(results_caption).unsqueeze(0).to(torch.int64).to(self.device)
                 embeddings = self.decoder.dropout(self.decoder.embed(captions))  # [batch_size, seq_len, embed_size]
 
-                decoder_out = self.decoder.decoder(
-                    tgt=embeddings,
-                    memory=features.unsqueeze(1),
-                )
+                if isinstance(self.decoder, TransformerDecoderHead):
+                    decoder_out = self.decoder.decoder(
+                        tgt=embeddings,
+                        memory=features.unsqueeze(1),
+                    )
+                else:
+                    inputs = torch.cat((features.unsqueeze(1), embeddings), dim=1)  # [batch_size, seq_len+1, embed_size]
+                    decoder_out, _ = self.decoder.lstm(inputs)  # [batch_size, seq_len+1, hidden_size]
+
                 preds = self.decoder.fc(decoder_out)
                 preds = torch.argmax(preds[0, -1, :]).cpu().item()
                 results_caption.append(preds)
