@@ -67,6 +67,9 @@ class TransformerDecoderHead(nn.Module):
         self.dropout = nn.Dropout(config["dropout_prob"])
 
     def forward(self, features, captions, pad_mask):
+        captions = captions[:, :-1].contiguous()
+        pad_mask = pad_mask[:, :-1].contiguous()
+
         embeddings = self.dropout(self.embed(captions))  # [batch_size, seq_len, embed_size]
         seq_len = embeddings.shape[1]
 
@@ -124,7 +127,11 @@ class Baseline(L.LightningModule):
     def training_step(self, batch, batch_idx):
         images, captions, pad_mask = batch
         targets_input = captions
-        targets_output = captions
+
+        if isinstance(self.decoder, TransformerDecoderHead):
+            targets_output = captions[:, 1:].contiguous()
+        else:
+            targets_output = captions
 
         preds = self.forward(images=images, captions=targets_input, pad_mask=pad_mask)
 
@@ -174,7 +181,11 @@ class Baseline(L.LightningModule):
     def validation_step(self, batch, batch_idx):
         images, captions, pad_mask = batch
         targets_input = captions
-        targets_output = captions
+
+        if isinstance(self.decoder, TransformerDecoderHead):
+            targets_output = captions[:, 1:].contiguous()
+        else:
+            targets_output = captions
 
         preds = self.forward(images=images, captions=targets_input, pad_mask=pad_mask)
 
@@ -198,21 +209,36 @@ class Baseline(L.LightningModule):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.config["lr"])
         return [optimizer], []
 
-    def caption_image(self, image, max_length=50):
-        results_caption = []
+    def caption_image(self, image, config, max_length=50):
+        if config["encoder"]["name"].lower() == "resnet18":
+            transforms = ResNet18_Weights.IMAGENET1K_V1.transforms()
+        elif config["encoder"]["name"].lower() == "resnet34":
+            transforms = ResNet34_Weights.IMAGENET1K_V1.transforms()
+        elif config["encoder"]["name"].lower() == "resnet50":
+            transforms = ResNet50_Weights.IMAGENET1K_V1.transforms()
+        else:
+            raise ValueError("Expected: resnet18, resnet34, resnet50; Got: " + config["encoder"]["name"])
+
+        image = transforms(image)
+        image = image.unsqueeze(0).to(self.device)
+        results_caption = [self.vocab.stoi("<SOS>")]
 
         with torch.no_grad():
-            x = self.encoder(image).unsqueeze(0)
-            states = None
+            features = self.encoder(image)
 
             for _ in range(max_length):
-                pred_lstm, states = self.decoder.lstm(x, states)
-                output = self.decoder.fc(pred_lstm.unsqueeze(0))
-                predicted = output.argmax(-1)
-                results_caption.append(predicted.item())
-                x = self.decoder.embed(predicted).unsqueeze(0)
+                captions = torch.tensor(results_caption).unsqueeze(0).to(torch.int64).to(self.device)
+                embeddings = self.decoder.dropout(self.decoder.embed(captions))  # [batch_size, seq_len, embed_size]
 
-                if self.vocab.itos(predicted.item()) == "<EOS>":
+                decoder_out = self.decoder.decoder(
+                    tgt=embeddings,
+                    memory=features.unsqueeze(1),
+                )
+                preds = self.decoder.fc(decoder_out)
+                preds = torch.argmax(preds[0, -1, :]).cpu().item()
+                results_caption.append(preds)
+
+                if self.vocab.itos(preds) == "<EOS>":
                     break
 
         return " ".join([self.vocab.itos(idx) for idx in results_caption])
