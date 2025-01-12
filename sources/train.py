@@ -1,3 +1,4 @@
+import datetime
 import os
 
 import lightning as L
@@ -44,10 +45,24 @@ def init_model(config, vocab):
     return model
 
 
-def init_logging():
+def init_logging(name):
+
+    folder_name = name + datetime.datetime.now().strftime('%d_%H_%M')
+
+    folder_path = os.path.join("..", "outputs", folder_name)
+    logger_path = os.path.join("..", "outputs", folder_name, "logs")
+    param_path = os.path.join("..", "outputs", folder_name, "ckpts")
+
+    if not os.path.exists(folder_path):
+        os.makedirs(folder_path)
+
+    if not os.path.exists(logger_path):
+        os.makedirs(logger_path)
+
+    if not os.path.exists(param_path):
+        os.makedirs(param_path)
 
     # LOGGER
-    logger_path = os.path.join("..", "outputs", "logs")
     logger = TensorBoardLogger(logger_path)
 
     # CALLBACKS
@@ -55,7 +70,7 @@ def init_logging():
     callbacks.append(
         ModelCheckpoint(
             monitor="val_loss",
-            dirpath=os.path.join("..", "outputs", "ckpts"),
+            dirpath=param_path,
             filename='model-{epoch:02d}',
             mode="min",
         )
@@ -71,7 +86,7 @@ if __name__ == "__main__":
     train_dl, val_dl, vocab = load_datasets(config)
 
     model = init_model(config, vocab)
-    logger, callbacks = init_logging()
+    logger, callbacks = init_logging(config["model_name"])
 
     trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks)
     trainer.fit(model, train_dl, val_dl)

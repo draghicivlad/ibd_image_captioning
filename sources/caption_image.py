@@ -5,7 +5,7 @@ from PIL import Image
 from model import Baseline
 from utils import create_vocab_flickr30k
 
-IMAGE_PATH = "../data/flickr30k/flickr30k-images/3359636318.jpg"
+IMAGE_PATH = "../data/flickr30k/flickr30k-images/5519354264.jpg"
 
 if __name__ == "__main__":
     with open('config.yaml', 'r') as f:

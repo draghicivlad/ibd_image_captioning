@@ -3,6 +3,7 @@ import math
 import lightning as L
 import torch
 from torch import nn
+from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.text import Perplexity
 from torchvision.models import ResNet18_Weights, resnet18, resnet34, ResNet34_Weights, resnet50, ResNet50_Weights
 
@@ -207,7 +208,9 @@ class Baseline(L.LightningModule):
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(), lr=self.config["lr"])
-        return [optimizer], []
+        scheduler = CosineAnnealingLR(optimizer, T_max=self.config["epochs"], eta_min=1e-6)
+
+        return [optimizer], [scheduler]
 
     def caption_image(self, image, config, max_length=50):
         if config["encoder"]["name"].lower() == "resnet18":
