@@ -2,28 +2,29 @@ data_root_path: "../data/flickr30k"
 
 model_saved_path: "../outputs/ckpts/model-epoch=09.ckpt"
 
-model_name: "transf_dec_2lay"
+model_name: "data_aug_lstm"
 
 encoder:
   name: "resnet18"
   latent_dim: 256
 
-#decoder:
-#   name: "lstm"
-#   embed_size: 256
-#   hidden_size: 512
-#   num_layers: 2
-#   dropout_prob: 0.1
-
 decoder:
-  name: "transformer"
-  d_model: 256
-  d_ff: 512
-  nheads: 4
-  num_layers: 2
-  dropout_prob: 0.1
+   name: "lstm"
+   embed_size: 256
+   hidden_size: 512
+   num_layers: 2
+   dropout_prob: 0.1
+
+#decoder:
+#  name: "transformer"
+#  d_model: 256
+#  d_ff: 512
+#  nheads: 4
+#  num_layers: 2
+#  dropout_prob: 0.1
 
 lr: 0.001
 # lr: 0.001
-epochs: 15
+use_data_augmentation: True
+epochs: 50
 batch_size: 32
