@@ -4,7 +4,7 @@ import lightning as L
 import torch
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
-from torchmetrics.text import Perplexity
+from torchmetrics.text import Perplexity, BLEUScore, ROUGEScore
 from torchvision.models import ResNet18_Weights, resnet18, resnet34, ResNet34_Weights, resnet50, ResNet50_Weights
 
 
@@ -93,6 +93,8 @@ class Baseline(L.LightningModule):
         self.vocab = vocab
 
         self.perplexity = Perplexity(ignore_index=self.vocab.stoi('<PAD>'))
+        self.bleu = BLEUScore(smooth=True, n_gram=1)
+        self.rouge = ROUGEScore()
 
         # ENCODER
         if config["encoder"]["name"].lower() == "resnet18":
@@ -166,6 +168,22 @@ class Baseline(L.LightningModule):
         # Compute perplexity (optional, if you want it logged during testing)
         self.perplexity.update(preds, targets_output)
 
+        text_pred = torch.argmax(preds, dim=-1).cpu().tolist()
+        text_target = targets_output.cpu().tolist()
+
+        text_pred = [
+            " ".join([self.vocab.itos(idx) for idx in results_caption if idx not in (0, 1, 2, 3)])
+            for results_caption in text_pred
+        ]
+
+        text_target = [
+            " ".join([self.vocab.itos(idx) for idx in results_caption if idx not in (0, 1, 2, 3)])
+            for results_caption in text_target
+        ]
+
+        self.bleu.update(text_pred, text_target)
+        self.rouge.update(text_pred, text_target)
+
         # Log the test loss
         self.log("test_loss", loss, prog_bar=True)
 
@@ -178,6 +196,10 @@ class Baseline(L.LightningModule):
         test_perplexity = self.perplexity.compute()
         self.log("test_perplexity", test_perplexity, prog_bar=True)
         self.perplexity.reset()
+        self.log("test_bleu", self.bleu.compute())
+        self.bleu.reset()
+        self.log("test_rouge", self.rouge.compute()['rougeL_fmeasure'])
+        self.rouge.reset()
 
     def validation_step(self, batch, batch_idx):
         images, captions, pad_mask = batch
@@ -202,12 +224,32 @@ class Baseline(L.LightningModule):
             targets_output
         )
 
+        text_pred = torch.argmax(preds, dim=-1).cpu().tolist()
+        text_target = targets_output.cpu().tolist()
+
+        text_pred = [
+            " ".join([self.vocab.itos(idx) for idx in results_caption if idx not in (0, 1, 2, 3)])
+            for results_caption in text_pred
+        ]
+
+        text_target = [
+            " ".join([self.vocab.itos(idx) for idx in results_caption if idx not in (0, 1, 2, 3)])
+            for results_caption in text_target
+        ]
+
+        self.bleu.update(text_pred, text_target)
+        self.rouge.update(text_pred, text_target)
+
     def on_validation_epoch_end(self):
         self.log("val_perplexity", self.perplexity.compute())
         self.perplexity.reset()
+        self.log("val_bleu", self.bleu.compute())
+        self.bleu.reset()
+        self.log("val_rouge", self.rouge.compute()['rougeL_fmeasure'])
+        self.rouge.reset()
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(), lr=self.config["lr"])
+        optimizer = torch.optim.AdamW(self.parameters(), lr=self.config["lr"], weight_decay=5e-4)
         scheduler = CosineAnnealingLR(optimizer, T_max=self.config["epochs"], eta_min=1e-6)
 
         return [optimizer], [scheduler]
