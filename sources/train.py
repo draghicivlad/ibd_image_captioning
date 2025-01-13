@@ -2,6 +2,7 @@ import datetime
 import os
 
 import lightning as L
+import torch
 import yaml
 from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
 from lightning.pytorch.loggers import TensorBoardLogger
@@ -27,10 +28,14 @@ def get_transform(config, train=False):
     if "use_data_augmentation" in config and config["use_data_augmentation"] and train:
         print("DATA AUGMENTATION IS USED!")
         transforms = v2.Compose([
+            v2.Resize(size=256),
+            v2.CenterCrop(size=(224, 224)),
             v2.RandomHorizontalFlip(p=0.5),
             v2.RandomRotation(10),
             v2.ColorJitter(brightness=0.2, contrast=0.2, saturation=0.2, hue=0.1),
-            transforms
+            v2.ToImage(),
+            v2.ToDtype(torch.float32, scale=True),
+            v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
         ])
 
     return transforms

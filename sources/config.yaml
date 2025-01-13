@@ -2,7 +2,7 @@ data_root_path: "../data/flickr30k"
 
 model_saved_path: "../outputs/ckpts/model-epoch=09.ckpt"
 
-model_name: "data_aug_lstm"
+model_name: "data_aug_transformer"
 
 encoder:
   name: "resnet18"
@@ -25,6 +25,6 @@ decoder:
 
 lr: 0.001
 # lr: 0.001
-use_data_augmentation: True
+use_data_augmentation: False
 epochs: 50
 batch_size: 32
