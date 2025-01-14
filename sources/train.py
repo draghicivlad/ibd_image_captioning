@@ -4,8 +4,8 @@ import os
 import lightning as L
 import torch
 import yaml
-from lightning.pytorch.callbacks import ModelCheckpoint, EarlyStopping
-from lightning.pytorch.loggers import TensorBoardLogger
+from lightning.pytorch.callbacks import ModelCheckpoint
+from lightning.pytorch.loggers import CSVLogger
 from torch.utils.data import DataLoader
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 from torchvision.transforms import v2
@@ -80,7 +80,7 @@ def init_logging(name):
         os.makedirs(param_path)
 
     # LOGGER
-    logger = TensorBoardLogger(logger_path)
+    logger = CSVLogger(logger_path)
 
     # CALLBACKS
     callbacks = [
@@ -90,11 +90,6 @@ def init_logging(name):
             filename='model-{epoch:02d}',
             mode="min",
         ),
-        EarlyStopping(
-            monitor="val_loss",
-            mode="min",
-            patience=5,
-        )
     ]
 
     return logger, callbacks
