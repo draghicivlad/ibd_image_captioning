@@ -10,9 +10,9 @@ from torch.utils.data import DataLoader
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 from torchvision.transforms import v2
 
-from sources.dataset import Flickr30k, make_collater
+from sources.dataset import Flickr30k, make_collater, COCORo
 from sources.model import Baseline
-from sources.utils import create_vocab_flickr30k
+from sources.utils import create_vocab_flickr30k, create_vocab_cocoro
 
 
 def get_transform(config, train=False):
@@ -42,12 +42,26 @@ def get_transform(config, train=False):
 
 
 def load_datasets(config):
-    vocab = create_vocab_flickr30k(config["data_root_path"])
+    if config["language"] == "en":
+        vocab = create_vocab_flickr30k(config["data_root_path_en"])
+    elif config["language"] == "ro":
+        vocab = create_vocab_cocoro(config["data_root_path_ro"])
 
-    train_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path"],
-                              transforms=get_transform(config, train=True), split="train")
-    val_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path"],
-                            transforms=get_transform(config), split="val")
+    if config["language"] == "en":
+        train_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path_en"],
+                                  transforms=get_transform(config, train=True), split="train")
+        val_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path_en"],
+                                transforms=get_transform(config), split="val")
+    elif config["language"] == "ro":
+        dataset = COCORo(vocab=vocab, root_path=config["data_root_path_ro"],
+                                  transforms=get_transform(config, train=True))
+
+        len_dataset = len(dataset)
+        train_size = int(0.9 * len_dataset)
+        val_size = len_dataset - train_size
+
+        train_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, val_size])
+
     collate_fn = make_collater(vocab)
 
     train_dl = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn)

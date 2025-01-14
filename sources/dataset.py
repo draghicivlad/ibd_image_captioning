@@ -70,3 +70,31 @@ class Flickr30k(data.Dataset):
             [self.vocab.stoi("<SOS>")] + [self.vocab.stoi(idx) for idx in caption.split()] + [self.vocab.stoi("<EOS>")],
             torch.ones(len(caption.split()) + 2)
         )
+
+class COCORo(data.Dataset):
+    def __init__(self, vocab, root_path="../data/coco/output", transforms=None):
+        self.root_path = root_path
+        self.movie_dir = "images"
+        self.vocab = vocab
+        self.transforms = transforms
+
+        self.captions = pd.read_csv(os.path.join(self.root_path, "captions.token"), header=None, sep='\t')
+        # print(self.captions.head())
+        self.captions.reset_index(inplace=True, drop=True)
+
+    def __len__(self):
+        return len(self.captions.index)
+
+    def __getitem__(self, item):
+        row = self.captions.iloc[item]
+
+        movie_name = row[0][:-2]
+        caption = row[1][:1000].strip()
+
+        image = Image.open(os.path.join(self.root_path, self.movie_dir, movie_name))
+
+        return (
+            self.transforms(image),
+            [self.vocab.stoi("<SOS>")] + [self.vocab.stoi(idx) for idx in caption.split()] + [self.vocab.stoi("<EOS>")],
+            torch.ones(len(caption.split()) + 2)
+        )

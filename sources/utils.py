@@ -18,11 +18,25 @@ class Vocabulary:
         return self.tokens[idx]
 
     def stoi(self, token):
-        return self.id_tokens[token]
+        return self.id_tokens.get(token, 0)
 
 
 def create_vocab_flickr30k(path):
     df = pd.read_csv(os.path.join(path, "results_20130124.token"), header=None, sep='\t')
+
+    captions = df[1].to_list()
+    tokenized_sentences = [sentence.split() for sentence in captions]
+    all_tokens = [token for sentence in tokenized_sentences for token in sentence]
+
+    all_tokens = set(all_tokens)
+    all_tokens = sorted(all_tokens)
+    all_tokens = ['<PAD>', '<UNK>', '<SOS>', '<EOS>'] + all_tokens
+
+    return Vocabulary(all_tokens)
+
+
+def create_vocab_cocoro(path):
+    df = pd.read_csv(os.path.join(path, "captions.token"), header=None, sep='\t')
 
     captions = df[1].to_list()
     tokenized_sentences = [sentence.split() for sentence in captions]
