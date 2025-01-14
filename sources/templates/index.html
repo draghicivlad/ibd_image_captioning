@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Captioning Demo</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        img {
+            max-height: 400px;
+            max-width: 400px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-5">
+        <h1 class="text-center mb-4">Image Captioning Demo</h1>
+        <form method="POST" enctype="multipart/form-data" class="border p-4 rounded shadow">
+            <div class="mb-3">
+                <label for="image" class="form-label">Upload Image</label>
+                <input class="form-control" type="file" id="image" name="image" accept="image/*" required>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Select Language</label><br>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="language" id="romanian" value="romanian" required>
+                    <label class="form-check-label" for="romanian">Romanian</label>
+                </div>
+                <div class="form-check form-check-inline">
+                    <input class="form-check-input" type="radio" name="language" id="english" value="english" required>
+                    <label class="form-check-label" for="english">English</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Generate Captions</button>
+
+            {% if image_path %}
+            <div class="mt-4">
+                <h3>Uploaded Image</h3>
+                <img src="{{ image_path }}" alt="Uploaded Image" class="img-fluid mb-3">
+                <h4>Generated Captions:</h4>
+                <ul>
+                    {% for caption in captions %}
+                        <li>{{ caption }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </form>
+    </div>
+</body>
+</html>
