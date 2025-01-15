@@ -3,9 +3,9 @@ data_root_path_ro: "../data/coco/output"
 
 language: "ro"
 
-model_saved_path: "../outputs/data_aug_lstm12_15_16/ckpts/model-epoch=02.ckpt"
+model_saved_path: "../outputs/lstm_dec_2lay11_16_30/ckpts/model-epoch=03.ckpt"
 
-model_name: "transf_ro"
+model_name: "ro_lstm_256_512_2_0.3"
 
 encoder:
   name: "resnet18"
@@ -16,7 +16,7 @@ encoder:
 #   embed_size: 256
 #   hidden_size: 512
 #   num_layers: 2
-#   dropout_prob: 0.1
+#   dropout_prob: 0.3
 
 decoder:
   name: "transformer"
