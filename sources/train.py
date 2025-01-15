@@ -114,12 +114,10 @@ if __name__ == "__main__":
     with open('config.yaml', 'r') as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
-    print(json.dumps(config, indent = 4))
+    train_dl, val_dl, vocab = load_datasets(config)
 
-    # train_dl, val_dl, vocab = load_datasets(config)
-    #
-    # model = init_model(config, vocab)
-    # logger, callbacks = init_logging(config["model_name"])
-    #
-    # trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks)
-    # trainer.fit(model, train_dl, val_dl)
+    model = init_model(config, vocab)
+    logger, callbacks = init_logging(config["model_name"])
+
+    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks)
+    trainer.fit(model, train_dl, val_dl)

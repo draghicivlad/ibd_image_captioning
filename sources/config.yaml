@@ -11,20 +11,20 @@ encoder:
   name: "resnet18"
   latent_dim: 256
 
-#decoder:
-#   name: "lstm"
-#   embed_size: 256
-#   hidden_size: 512
-#   num_layers: 2
-#   dropout_prob: 0.3
-
 decoder:
-  name: "transformer"
-  d_model: 256
-  d_ff: 512
-  nheads: 4
-  num_layers: 2
-  dropout_prob: 0.3
+   name: "lstm"
+   embed_size: 256
+   hidden_size: 512
+   num_layers: 2
+   dropout_prob: 0.3
+
+#decoder:
+#  name: "transformer"
+#  d_model: 256
+#  d_ff: 512
+#  nheads: 4
+#  num_layers: 2
+#  dropout_prob: 0.3
 
 lr: 0.001
 # lr: 0.001
