@@ -11,6 +11,12 @@ def make_collater(vocab):
     pad_value = vocab.stoi("<PAD>")
 
     def collate_fn(data):
+        if isinstance(data[0], dict):  # Processor case
+            pixel_values = torch.stack([item['pixel_values'] for item in data])
+            input_ids = pad_sequence([item['input_ids'] for item in data], batch_first=True, padding_value=pad_value)
+            attention_mask = pad_sequence([item['attention_mask'] for item in data], batch_first=True, padding_value=0)
+
+            return pixel_values, input_ids, attention_mask
         images = []
         captions = []
         pad_masks = []
@@ -24,7 +30,6 @@ def make_collater(vocab):
         images = torch.stack(images)
         captions_padded = pad_sequence(captions, batch_first=True, padding_value=pad_value)
         pad_masks = torch.stack(pad_masks)
-
         return images, captions_padded, pad_masks
 
     return collate_fn
@@ -91,7 +96,7 @@ class COCORo(data.Dataset):
         movie_name = row[0][:-2]
         caption = row[1][:1000].strip()
 
-        image = Image.open(os.path.join(self.root_path, self.movie_dir, movie_name))
+        image = Image.open(os.path.join(self.root_path, self.movie_dir, movie_name)).convert("RGB")
 
         return (
             self.transforms(image),

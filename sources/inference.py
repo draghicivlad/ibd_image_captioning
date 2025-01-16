@@ -2,14 +2,15 @@ import os
 import json
 import lightning as L
 import yaml
+import torch
 from lightning.pytorch.callbacks import ModelCheckpoint
 from lightning.pytorch.loggers import TensorBoardLogger
 from torch.utils.data import DataLoader
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 
-from dataset import Flickr30k, make_collater
+from dataset import Flickr30k, make_collater, COCORo
 from model import Baseline
-from utils import create_vocab_flickr30k
+from utils import create_vocab_flickr30k, create_vocab_cocoro
 
 
 def get_transform(config):
@@ -24,16 +25,33 @@ def get_transform(config):
 
 
 def load_datasets(config):
-    vocab = create_vocab_flickr30k(config["data_root_path"])
+    if config["language"] == "en":
+        vocab = create_vocab_flickr30k(config["data_root_path_en"])
+    elif config["language"] == "ro":
+        vocab = create_vocab_cocoro(config["data_root_path_ro"])
 
-    test_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path"],
-                            transforms=get_transform(config), split="test")
+    if config["language"] == "en":
+        test_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path_en"],
+                                  transforms=get_transform(config), split="test")
+
+    elif config["language"] == "ro":
+
+        dataset = COCORo(vocab=vocab, root_path=config["data_root_path_ro"],
+                         transforms=get_transform(config))
+        batch_size = config["batch_size"]
+        len_dataset = len(dataset)
+        train_size = (int(0.7 * len_dataset) // batch_size) * batch_size
+        test_size = (int(0.15 * len_dataset) // batch_size) * batch_size
+        val_size = len_dataset - train_size - test_size
+
+        train_dataset, test_dataset, val_dataset = torch.utils.data.random_split(dataset, [train_size, test_size, val_size])
+
     collate_fn = make_collater(vocab)
 
-    test_dl = DataLoader(test_dataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn, num_workers=8)
+    test_dl = DataLoader(test_dataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn,num_workers=8, drop_last=True)
+    print(vocab)
 
-    return test_dl, vocab
-
+    return  test_dl, vocab
 
 def init_model(config, vocab):
     model = Baseline(config, vocab)
@@ -75,8 +93,8 @@ if __name__ == "__main__":
 
     # Load the model from the checkpoint
     model_path = config["model_saved_path"]
-    model = Baseline.load_from_checkpoint(model_path, config=config, vocab=vocab)
-
+    # model = Baseline.load_from_checkpoint(model_path, config=config, vocab=vocab)
+    model = Baseline.load_from_checkpoint(model_path, config=config, vocab=vocab, strict=False)
     # Initialize the Lightning Trainer
     # trainer = Trainer()
 

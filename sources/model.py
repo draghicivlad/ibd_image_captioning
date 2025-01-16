@@ -2,6 +2,7 @@ import math
 
 import lightning as L
 import torch
+# from django.db.models import F
 from torch import nn
 from torch.optim.lr_scheduler import CosineAnnealingLR
 from torchmetrics.text import Perplexity, BLEUScore, ROUGEScore
@@ -138,6 +139,8 @@ class Baseline(L.LightningModule):
 
         preds = self.forward(images=images, captions=targets_input, pad_mask=pad_mask)
 
+        loss = F.nll_loss(preds, targets_output)
+
         loss = torch.nn.functional.cross_entropy(
             preds.view(-1, len(self.vocab)),
             targets_output.view(-1),
@@ -157,16 +160,21 @@ class Baseline(L.LightningModule):
 
         # Forward pass
         preds = self.forward(images=images, captions=targets_input, pad_mask=pad_mask)
+        # Debugging shapes
 
+        if preds.size(0) != targets_output.size(0):
+            raise ValueError(
+                f"Batch size mismatch: student_preds {preds.size(0)}, targets_output {targets_output.size(0)}")
+        targets_output = targets_output[:, 1:]
         # Compute the loss
         loss = torch.nn.functional.cross_entropy(
-            preds.view(-1, len(self.vocab)),
-            targets_output.view(-1),
+            preds.reshape(-1, len(self.vocab)),
+            targets_output.reshape(-1),
             ignore_index=self.vocab.stoi("<PAD>")
         )
 
-        # Compute perplexity (optional, if you want it logged during testing)
         self.perplexity.update(preds, targets_output)
+
 
         text_pred = torch.argmax(preds, dim=-1).cpu().tolist()
         text_target = targets_output.cpu().tolist()

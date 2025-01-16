@@ -10,10 +10,11 @@ from lightning.pytorch.loggers import CSVLogger
 from torch.utils.data import DataLoader
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 from torchvision.transforms import v2
+from torch import nn
 
-from sources.dataset import Flickr30k, make_collater, COCORo
-from sources.model import Baseline
-from sources.utils import create_vocab_flickr30k, create_vocab_cocoro
+from dataset import Flickr30k, make_collater, COCORo
+from model import Baseline
+from utils import create_vocab_flickr30k, create_vocab_cocoro
 
 
 def get_transform(config, train=False):
@@ -65,9 +66,10 @@ def load_datasets(config):
 
     collate_fn = make_collater(vocab)
 
-    train_dl = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn)
-    val_dl = DataLoader(val_dataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn)
-
+    train_dl = DataLoader(train_dataset, batch_size=config["batch_size"], shuffle=True, collate_fn=collate_fn, num_workers=8, drop_last=True )
+    val_dl = DataLoader(val_dataset, batch_size=config["batch_size"], shuffle=False, collate_fn=collate_fn, num_workers=8, drop_last=True )
+    print(f"Train dataset size: {len(train_dataset)}")
+    print(f"Validation dataset size: {len(val_dataset)}")
     return train_dl, val_dl, vocab
 
 
@@ -114,10 +116,19 @@ if __name__ == "__main__":
     with open('config.yaml', 'r') as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
-    train_dl, val_dl, vocab = load_datasets(config)
-
-    model = init_model(config, vocab)
+    vocab = create_vocab_flickr30k(config["data_root_path_en"])
+    model_path = config["model_pretrained_en"]
+    # model = init_model(config, vocab)
+    model = Baseline.load_from_checkpoint(model_path, config=config, vocab=vocab)
     logger, callbacks = init_logging(config["model_name"])
 
-    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks)
+    vocab = create_vocab_cocoro(config["data_root_path_ro"])
+    model.vocab = vocab
+
+    model.decoder.vocab = vocab
+    model.embed = nn.Embedding(len(vocab), config["decoder"]["d_model"])
+    model.decoder.fc = nn.Linear(config["decoder"]["d_model"], len(vocab))
+
+    train_dl, val_dl, vocab = load_datasets(config)
+    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks, accelerator="cpu")
     trainer.fit(model, train_dl, val_dl)
