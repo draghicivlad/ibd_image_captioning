@@ -94,14 +94,17 @@ class ModelInfer():
         ro_vocab = create_vocab_cocoro(config["data_root_path_ro"])
 
         self.romanian_models_paths = {
-            "transformer" : [
-                r"..\outputs\ro_transf_256_512_2_0.3\ckpts\model-epoch=12.ckpt",
-                ro_vocab, config_transf],
             "lstm": [
                 r"..\outputs\ro_lstm_256_512_2_0.315_13_30\ckpts\model-epoch=03.ckpt",
                 ro_vocab, config_lstm],
+            "transformer": [
+                r"..\outputs\ro_transf_256_512_2_0.3\ckpts\model-epoch=12.ckpt",
+                ro_vocab, config_transf],
+            "transformer_zero_shot": [
+                r"..\outputs\ro_transformer_256_512_2_0.315_23_34\ckpts\model-epoch=14.ckpt",
+                ro_vocab, config_transf],
             "transformer_transfer_lr": [
-                r"..\outputs\ro_transformer_transfer_lr\ckpts\model-epoch=14.ckpt",
+                r"..\outputs\ro_transformer_256_512_2_0.3_transfer_learning_model16_20_15\ckpts\model-epoch=11.ckpt",
                 ro_vocab, config_transf]
         }
 
@@ -122,6 +125,9 @@ class ModelInfer():
                 en_vocab, config_lstm],
             "transformer_aug": [
                 r"../outputs/a_en_data_aug_transformer14_17_19/ckpts/model-epoch=13.ckpt",
+                en_vocab, config_transf],
+            "teacher": [
+                r"../outputs/git_teacher/ckpts/model-epoch=06.ckpt",
                 en_vocab, config_transf]
         }
 
