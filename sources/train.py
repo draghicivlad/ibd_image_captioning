@@ -11,9 +11,10 @@ from torch.utils.data import DataLoader
 from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weights
 from torchvision.transforms import v2
 
-from sources.dataset import Flickr30k, make_collater, COCORo
-from sources.model import Baseline
-from sources.utils import create_vocab_flickr30k, create_vocab_cocoro
+from dataset import Flickr30k, make_collater, COCORo
+from model import Baseline, FineTuneTeacherModel, KnowledgeDistillationModel
+from utils import create_vocab_flickr30k, create_vocab_cocoro
+from transformers import AutoProcessor, AutoModelForCausalLM
 
 
 def get_transform(config, train=False):
@@ -42,7 +43,7 @@ def get_transform(config, train=False):
     return transforms
 
 
-def load_datasets(config):
+def load_datasets(config, processor=None):
     if config["language"] == "en":
         vocab = create_vocab_flickr30k(config["data_root_path_en"])
     elif config["language"] == "ro":
@@ -50,9 +51,9 @@ def load_datasets(config):
 
     if config["language"] == "en":
         train_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path_en"],
-                                  transforms=get_transform(config, train=True), split="train")
+                                  transforms=get_transform(config, train=True), split="train", processor=processor)
         val_dataset = Flickr30k(vocab=vocab, root_path=config["data_root_path_en"],
-                                transforms=get_transform(config), split="val")
+                                transforms=get_transform(config), split="val", processor=processor)
     elif config["language"] == "ro":
         dataset = COCORo(vocab=vocab, root_path=config["data_root_path_ro"],
                                   transforms=get_transform(config, train=True))
@@ -114,10 +115,27 @@ if __name__ == "__main__":
     with open('config.yaml', 'r') as f:
         config = yaml.load(f, Loader=yaml.SafeLoader)
 
-    train_dl, val_dl, vocab = load_datasets(config)
+    if config["teacher_finetuning"] or config["use_knowledge_distilation"]:
+        processor = AutoProcessor.from_pretrained("microsoft/git-base-coco", use_fast=True)
+        train_dl, val_dl, vocab = load_datasets(config, processor=processor)
+    else:
+        train_dl, val_dl, vocab = load_datasets(config)
 
-    model = init_model(config, vocab)
+    if config["use_knowledge_distilation"]:
+        processor = AutoProcessor.from_pretrained("microsoft/git-base-coco", use_fast=True)
+        teacher_model = FineTuneTeacherModel.load_from_checkpoint(config["pretrained_teacher_path"],
+                    config=config,
+                    vocab=vocab,
+                    model_name="microsoft/git-base-coco",
+                    processor=processor
+                )
+        model = KnowledgeDistillationModel(teacher_model, config, vocab, pretrained_student_path=config["pretrained_student_path"])
+    elif config["teacher_finetuning"]:
+        model = FineTuneTeacherModel(config=config, vocab=vocab, model_name="microsoft/git-base-coco", processor=processor)
+    else:
+        model = init_model(config, vocab)
+
     logger, callbacks = init_logging(config["model_name"])
 
-    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks)
+    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks, val_check_interval=1.0)
     trainer.fit(model, train_dl, val_dl)

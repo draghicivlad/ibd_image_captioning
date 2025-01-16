@@ -1,8 +1,9 @@
 import torch
 import yaml
 from PIL import Image
+from transformers import AutoProcessor
 
-from sources.model import Baseline
+from sources.model import Baseline, FineTuneTeacherModel, KnowledgeDistillationModel
 from sources.utils import create_vocab_flickr30k, create_vocab_cocoro
 
 
@@ -76,9 +77,96 @@ config_transf = {
     "batch_size": 32
 }
 
+config_teacher = {
+    "data_root_path_en": "../data/flickr30k",
+    "data_root_path_ro": "../data/coco/output",
+    "language": "en",
+
+    "model_saved_path": "../outputs/ro_lstm_256_512_2_0.316_18_47/ckpts/model-epoch=02.ckpt",
+    "pretrained_student_path": "../outputs/child_model_finetuned/ckpts/model-epoch=11.ckpt",
+    "pretrained_teacher_path": "../outputs/teacher_freezedGit_finetuned/ckpts/model-epoch=06.ckpt",
+    "next_teacher": "../outputs/ro_lstm_256_512_2_0.316_11_40/ckpts/model-epoch=04.ckpt",
+    "model_name": "ro_lstm_256_512_2_0.3",
+
+    "encoder": {
+      "name": "resnet18",
+      "latent_dim": 256
+    },
+
+    "decoder": {
+        "name": "transformer",
+        "d_model": 256,
+        "d_ff": 512,
+        "nheads": 4,
+        "num_layers": 2,
+        "dropout_prob": 0.3
+    },
+
+    "lr": 0.00001,
+    "alpha": 0.3,
+    "teacher_finetuning": True,
+    "use_knowledge_distilation": False,
+    "use_data_augmentation": False,
+    "epochs": 7,
+    "batch_size": 32
+}
+
+config_distil = {
+    "data_root_path_en": "../data/flickr30k",
+    "data_root_path_ro": "../data/coco/output",
+    "language": "en",
+
+    "model_saved_path": "../outputs/ro_lstm_256_512_2_0.316_18_47/ckpts/model-epoch=02.ckpt",
+    "pretrained_student_path": "../outputs/child_model_finetuned/ckpts/model-epoch=11.ckpt",
+    "pretrained_teacher_path": "../outputs/git_teacher/ckpts/model-epoch=06.ckpt",
+    "next_teacher": "../outputs/ro_lstm_256_512_2_0.316_11_40/ckpts/model-epoch=04.ckpt",
+    "model_name": "ro_lstm_256_512_2_0.3",
+
+    "encoder": {
+      "name": "resnet18",
+      "latent_dim": 256
+    },
+
+    "decoder": {
+        "name": "transformer",
+        "d_model": 256,
+        "d_ff": 512,
+        "nheads": 4,
+        "num_layers": 2,
+        "dropout_prob": 0.3
+    },
+
+    "lr": 0.00001,
+    "alpha": 0.3,
+    "teacher_finetuning": False,
+    "use_knowledge_distilation": True,
+    "use_data_augmentation": False,
+    "epochs": 7,
+    "batch_size": 32
+}
+
+
 def load_model(path, vocab, config):
-    model = Baseline(config, vocab)
-    model.load_state_dict(torch.load(path)["state_dict"])
+    if "teacher_finetuning" in config and config["teacher_finetuning"]:
+        processor = AutoProcessor.from_pretrained("microsoft/git-base-coco", use_fast=True)
+        model = FineTuneTeacherModel.load_from_checkpoint(path,
+                                                          config=config,
+                                                          vocab=vocab,
+                                                          model_name="microsoft/git-base-coco",
+                                                          processor=processor
+                                                          )
+    elif "use_knowledge_distilation" in config and config["use_knowledge_distilation"]:
+        processor = AutoProcessor.from_pretrained("microsoft/git-base-coco", use_fast=True)
+        teacher_model = FineTuneTeacherModel.load_from_checkpoint(config["pretrained_teacher_path"],
+                    config=config,
+                    vocab=vocab,
+                    model_name="microsoft/git-base-coco",
+                    processor=processor
+                )
+        model = KnowledgeDistillationModel.load_from_checkpoint(path, teacher_model=teacher_model, config=config, vocab=vocab, pretrained_student_path=None)
+    else:
+        model = Baseline(config, vocab)
+        model.load_state_dict(torch.load(path)["state_dict"])
 
     model.eval()
     model.cuda()
@@ -128,7 +216,10 @@ class ModelInfer():
                 en_vocab, config_transf],
             "teacher": [
                 r"../outputs/git_teacher/ckpts/model-epoch=06.ckpt",
-                en_vocab, config_transf]
+                en_vocab, config_teacher],
+            "distiled": [
+                r"../outputs/distilled_model/ckpts/model-epoch=02.ckpt",
+                en_vocab, config_distil],
         }
 
         self.english_models = {}

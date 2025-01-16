@@ -2,8 +2,9 @@ import torch
 import yaml
 from PIL import Image
 
-from model import Baseline
+from model import Baseline, FineTuneTeacherModel
 from utils import create_vocab_flickr30k, create_vocab_cocoro
+from transformers import AutoProcessor, AutoModelForCausalLM
 
 IMAGE_PATH = r"C:\Users\Vlad\Downloads\test3.jpeg"
 
@@ -14,8 +15,17 @@ def caption_image(config):
     elif config["language"] == "ro":
         vocab = create_vocab_cocoro(config["data_root_path_ro"])
 
-    model = Baseline(config, vocab)
-    model.load_state_dict(torch.load(config["model_saved_path"])["state_dict"])
+    if config["teacher_finetuning"]:
+        processor = AutoProcessor.from_pretrained("microsoft/git-base-coco", use_fast=True)
+        model = FineTuneTeacherModel.load_from_checkpoint(config["model_saved_path"],
+                                                          config=config,
+                                                          vocab=vocab,
+                                                          model_name="microsoft/git-base-coco",
+                                                          processor=processor
+                                                          )
+    else:
+        model = Baseline(config, vocab)
+        model.load_state_dict(torch.load(config["model_saved_path"])["state_dict"])
 
     model.eval()
     model.cuda()
