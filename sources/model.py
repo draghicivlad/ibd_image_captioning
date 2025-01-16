@@ -291,7 +291,12 @@ class Baseline(L.LightningModule):
                 if self.vocab.itos(preds) == "<EOS>":
                     break
 
-        return " ".join([self.vocab.itos(idx) for idx in results_caption])
+        text = " ".join([self.vocab.itos(idx) for idx in results_caption])
+        text = text.replace("<SOS>", "")
+        text = text.replace("<EOS>", "")
+        text = text.strip()
+
+        return text
 
 
 if __name__ == "__main__":

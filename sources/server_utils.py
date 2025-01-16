@@ -29,6 +29,29 @@ config_lstm = {
     "batch_size": 32
 }
 
+config_lstm_2 = {
+    "data_root_path_en": "../data/flickr30k",
+    "data_root_path_ro": "../data/coco/output",
+    "language": "ro",
+    "model_saved_path": "../outputs/lstm_dec_2lay11_16_30/ckpts/model-epoch=03.ckpt",
+    "model_name": "ro_lstm_256_512_2_0.3",
+    "encoder": {
+        "name": "resnet18",
+        "latent_dim": 256
+    },
+    "decoder": {
+        "name": "lstm",
+        "embed_size": 256,
+        "hidden_size": 256,
+        "num_layers": 2,
+        "dropout_prob": 0.3
+    },
+    "lr": 0.001,
+    "use_data_augmentation": False,
+    "epochs": 15,
+    "batch_size": 32
+}
+
 config_transf = {
     "data_root_path_en": "../data/flickr30k",
     "data_root_path_ro": "../data/coco/output",
@@ -71,8 +94,14 @@ class ModelInfer():
         ro_vocab = create_vocab_cocoro(config["data_root_path_ro"])
 
         self.romanian_models_paths = {
-            "transf_256_512_2_0.3" : [
-                r"C:\Users\Vlad\ibd_image_captioning\outputs\ro_transf_256_512_2_0.3\ckpts\model-epoch=12.ckpt",
+            "transformer" : [
+                r"..\outputs\ro_transf_256_512_2_0.3\ckpts\model-epoch=12.ckpt",
+                ro_vocab, config_transf],
+            "lstm": [
+                r"..\outputs\ro_lstm_256_512_2_0.315_13_30\ckpts\model-epoch=03.ckpt",
+                ro_vocab, config_lstm],
+            "transformer_transfer_lr": [
+                r"..\outputs\ro_transformer_transfer_lr\ckpts\model-epoch=14.ckpt",
                 ro_vocab, config_transf]
         }
 
@@ -82,9 +111,18 @@ class ModelInfer():
             self.romanian_models[k] = (load_model(v[0], v[1], v[2]), v[2])
 
         self.english_models_paths = {
-            "lstm_256_512_2_0.3": [
-                r"C:\Users\Vlad\ibd_image_captioning\outputs\en_lstm_256_512_2_0.3\ckpts\model-epoch=03.ckpt",
-                en_vocab, config_lstm]
+            "lstm": [
+                r"../outputs/a_en_lstm13_20_59/ckpts/model-epoch=02.ckpt",
+                en_vocab, config_lstm],
+            "transformer": [
+                r"../outputs/a_en_transformer14_00_41/ckpts/model-epoch=14.ckpt",
+                en_vocab, config_transf],
+            "lstm_aug": [
+                r"../outputs/a_en_data_aug_lstm14_10_50/ckpts/model-epoch=03.ckpt",
+                en_vocab, config_lstm],
+            "transformer_aug": [
+                r"../outputs/a_en_data_aug_transformer14_17_19/ckpts/model-epoch=13.ckpt",
+                en_vocab, config_transf]
         }
 
         self.english_models = {}
@@ -100,7 +138,7 @@ class ModelInfer():
             model, config = v
 
             caption = model.caption_image(image, config)
-            output_list.append(f"{k}: {caption}\n")
+            output_list.append(f"{k}:   {caption}\n")
 
         return output_list
 
@@ -112,6 +150,6 @@ class ModelInfer():
             model, config = v
 
             caption = model.caption_image(image, config)
-            output_list.append(f"{k}: {caption}\n")
+            output_list.append(f"{k}:   {caption}\n")
 
         return output_list
