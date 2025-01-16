@@ -1,33 +1,43 @@
 data_root_path_en: "../data/flickr30k"
 data_root_path_ro: "../data/coco/output"
 
-language: "ro"
+language: "en"
 
-model_saved_path: "../outputs/lstm_dec_2lay11_16_30/ckpts/model-epoch=03.ckpt"
-
+# model_saved_path: "../outputs/lstm_dec_2lay11_16_30/ckpts/model-epoch=03.ckpt"
+# model_saved_path: "../outputs/ro_lstm_256_512_2_0.316_01_52/ckpts/model-epoch=02.ckpt"
+# model_saved_path: "../outputs/ro_lstm_256_512_2_0.316_11_40/ckpts/model-epoch=06.ckpt"
+model_saved_path: "../outputs/ro_lstm_256_512_2_0.316_18_47/ckpts/model-epoch=02.ckpt"
+pretrained_student_path: "../outputs/child_model_finetuned/ckpts/model-epoch=11.ckpt"
+# pretrained_teacher_path: "../outputs/teacher_model_fully_finetuning/ckpts/model-epoch=02.ckpt"
+pretrained_teacher_path: "../outputs/teacher_freezedGit_finetuned/ckpts/model-epoch=06.ckpt"
+next_teacher: "../outputs/ro_lstm_256_512_2_0.316_11_40/ckpts/model-epoch=04.ckpt"
 model_name: "ro_lstm_256_512_2_0.3"
+
 
 encoder:
   name: "resnet18"
   latent_dim: 256
 
+# decoder:
+#    name: "lstm"
+#    embed_size: 256
+#    hidden_size: 512
+#    num_layers: 2
+#    dropout_prob: 0.3
+
 decoder:
-   name: "lstm"
-   embed_size: 256
-   hidden_size: 512
-   num_layers: 2
-   dropout_prob: 0.3
+ name: "transformer"
+ d_model: 256
+ d_ff: 512
+ nheads: 4
+ num_layers: 2
+ dropout_prob: 0.3
 
-#decoder:
-#  name: "transformer"
-#  d_model: 256
-#  d_ff: 512
-#  nheads: 4
-#  num_layers: 2
-#  dropout_prob: 0.3
-
-lr: 0.001
+lr: 0.00001
+alpha: 0.3
 # lr: 0.001
+teacher_finetuning: False
+use_knowledge_distilation: True
 use_data_augmentation: False
-epochs: 15
+epochs: 7
 batch_size: 32
