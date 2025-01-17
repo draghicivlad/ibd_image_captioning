@@ -74,11 +74,6 @@ class TransformerDecoderHead(nn.Module):
         embeddings = self.dropout(self.embed(captions))  # [batch_size, seq_len, embed_size]
         seq_len = embeddings.shape[1]
 
-        # print(f"captions shape: {captions.shape}")
-        # print(f"pad_mask shape: {pad_mask.shape}")
-        # print(f"embeddings shape: {embeddings.shape}")
-        # print(f"seq_len: {seq_len}")
-
         decoder_out = self.decoder(
             tgt=embeddings,
             memory=features.unsqueeze(1),
@@ -481,7 +476,7 @@ class KnowledgeDistillationModel(L.LightningModule):
         # self.processor = processor
         self.vocab = DictAsVocab(self.teacher_model.processor.tokenizer.get_vocab())
 
-        self.perplexity = Perplexity() #ignore_index=self.vocab.stoi('<PAD>'))
+        self.perplexity = Perplexity(ignore_index=0) #self.vocab.stoi['<PAD>'])
         self.bleu = BLEUScore(smooth=True, n_gram=1)
         self.rouge = ROUGEScore()
 
@@ -503,6 +498,13 @@ class KnowledgeDistillationModel(L.LightningModule):
         for param in self.encoder.fc.parameters():
             param.requires_grad = True
 
+        # for name,squle Type: {type(module)}\n")
+
+        for param in self.teacher_model.model.git.parameters():
+            param.requires_grad = False
+        for param in self.teacher_model.model.output.parameters():
+            param.requires_grad = False
+
         # DECODER
         if config["decoder"]["name"].lower() == "lstm":
             self.decoder = LSTMDecoder(config["decoder"], self.vocab)
@@ -511,15 +513,15 @@ class KnowledgeDistillationModel(L.LightningModule):
         else:
             raise ValueError("Expected: lstm, transformer; Got: " + config["decoder"]["name"])
 
-        # if pretrained_student_path:
-        #     self.student = Baseline.load_from_checkpoint(pretrained_student_path, config=config, vocab=vocab) 
-        #     self.encoder = self.student.encoder
-        #     self.decoder = self.student.decoder
-        #     self.decoder.vocab = self.vocab
-        #     self.decoder.fc = nn.Linear(config["decoder"]["d_model"], len(self.vocab))
-        #     self.decoder.embedding = nn.Embedding(len(self.vocab), config["decoder"]["d_model"])
+        if pretrained_student_path:
+            self.student = Baseline.load_from_checkpoint(config["pretrained_student_path"], config=config, vocab=vocab) 
+            self.decoder = self.student.decoder
 
-        self.criterion = nn.CrossEntropyLoss()#ignore_index=self.vocab.stoi("<PAD>"))
+            self.decoder.vocab = self.vocab
+            self.decoder.embed = nn.Embedding(len(self.vocab.tokens), config["decoder"]["d_model"])
+            self.decoder.fc = nn.Linear(config["decoder"]["d_model"], len(self.vocab.tokens))
+
+        self.criterion = nn.CrossEntropyLoss(ignore_index=0)#self.vocab.stoi["<PAD>"])
         self.kl_div = nn.KLDivLoss(reduction="batchmean")
 
     def forward(self, images, captions, pad_mask):
@@ -590,7 +592,13 @@ class KnowledgeDistillationModel(L.LightningModule):
 
         teacher_preds = teacher_preds[:, :student_preds.shape[1], :]
         # Compute losses
-        ce_loss = self.criterion(student_preds.view(-1, len(self.vocab)), targets_output.view(-1))
+        ce_loss = torch.nn.functional.cross_entropy(
+            student_preds.view(-1, len(self.vocab)),
+            targets_output.view(-1)
+            # ,ignore_index=self.vocab.stoi["<PAD>"]
+        )
+
+        # ce_loss = self.criterion(student_preds.view(-1, len(self.vocab)), targets_output.view(-1))
         kl_loss = self.kl_div(
             torch.log_softmax(student_preds, dim=-1),
             torch.softmax(teacher_preds, dim=-1)
@@ -628,12 +636,108 @@ class KnowledgeDistillationModel(L.LightningModule):
         self.bleu.reset()
         self.log("val_rouge", self.rouge.compute()['rougeL_fmeasure'])
         self.rouge.reset()
+
+    def test_step(self, batch, batch_idx):
+        if isinstance(batch, tuple):
+            images, input_ids, attention_mask, pad_mask = batch
+        else:
+            images = batch["pixel_values"]
+            input_ids = batch["input_ids"]
+            attention_mask = batch["attention_mask"]
+            pad_mask = batch["pad_mask"]
+        # images, captions, pad_mask = batch
+        targets_input = input_ids
+
+        if isinstance(self.decoder, TransformerDecoderHead):
+            targets_output = input_ids[:, 1:].contiguous()
+        else:
+            targets_output = input_ids
+
+        student_preds = self.forward(images, targets_input, pad_mask)
+
+        loss = self.criterion(student_preds.view(-1, len(self.vocab)), targets_output.view(-1))
+
+        self.log("test_loss", loss, prog_bar=True, logger=True)
+
+        self.perplexity.update(
+            student_preds,
+            targets_output
+        )
+
+        text_pred = torch.argmax(student_preds, dim=-1).cpu().tolist()
+        text_target = targets_output.cpu().tolist()
+
+        text_pred = [
+            " ".join([self.vocab.itos[idx] for idx in results_caption])# if idx not in (0, 1, 2, 3)])
+            for results_caption in text_pred
+        ]
+
+        text_target = [
+            " ".join([self.vocab.itos[idx] for idx in results_caption])# if idx not in (0, 1, 2, 3)])
+            for results_caption in text_target
+        ]
+
+        self.bleu.update(text_pred, text_target)
+        self.rouge.update(text_pred, text_target)
+        return loss
+
+    def on_test_epoch_end(self):
+        self.log("test_perplexity", self.perplexity.compute())
+        self.perplexity.reset()
+        self.log("test_bleu", self.bleu.compute())
+        self.bleu.reset()
+        self.log("test_rouge", self.rouge.compute()['rougeL_fmeasure'])
+        self.rouge.reset()
     
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.config["lr"], weight_decay=5e-4)
         scheduler = CosineAnnealingLR(optimizer, T_max=self.config["epochs"], eta_min=1e-6)
 
         return [optimizer], [scheduler]
+
+    def caption_image(self, image, config, max_length=50):
+        if config["encoder"]["name"].lower() == "resnet18":
+            transforms = ResNet18_Weights.IMAGENET1K_V1.transforms()
+        elif config["encoder"]["name"].lower() == "resnet34":
+            transforms = ResNet34_Weights.IMAGENET1K_V1.transforms()
+        elif config["encoder"]["name"].lower() == "resnet50":
+            transforms = ResNet50_Weights.IMAGENET1K_V1.transforms()
+        else:
+            raise ValueError("Expected: resnet18, resnet34, resnet50; Got: " + config["encoder"]["name"])
+
+        # image = self.teacher_model.processor(image)
+        image = transforms(image)
+        image = image.unsqueeze(0).to(self.device)
+
+        start_token = 'a'
+        end_token = '.'
+
+        results_caption = [self.vocab.stoi[start_token]]
+
+        with torch.no_grad():
+            features = self.encoder(image)
+
+            for _ in range(max_length):
+                captions = torch.tensor(results_caption).unsqueeze(0).to(torch.int64).to(self.device)
+                embeddings = self.decoder.dropout(self.decoder.embed(captions))  # [batch_size, seq_len, embed_size]
+
+                if isinstance(self.decoder, TransformerDecoderHead):
+                    decoder_out = self.decoder.decoder(
+                        tgt=embeddings,
+                        memory=features.unsqueeze(1),
+                    )
+                else:
+                    inputs = torch.cat((features.unsqueeze(1), embeddings), dim=1)  # [batch_size, seq_len+1, embed_size]
+                    decoder_out, _ = self.decoder.lstm(inputs)  # [batch_size, seq_len+1, hidden_size]
+
+                preds = self.decoder.fc(decoder_out)
+                preds = torch.argmax(preds[0, -1, :]).cpu().item()
+                results_caption.append(preds)
+
+                if self.vocab.itos[preds] == end_token:
+                    break
+
+        return " ".join([self.vocab.itos[idx] for idx in results_caption])
 
 if __name__ == "__main__":
     Baseline(config={"encoder": "resnet18"})

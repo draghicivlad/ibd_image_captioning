@@ -116,7 +116,7 @@ if __name__ == "__main__":
                     model_name="microsoft/git-base-coco",
                     processor=processor
                 )
-        model = KnowledgeDistillationModel.load_from_checkpoint(teacher_model, config, vocab, pretrained_student_path=config["pretrained_student_path"])
+        model = KnowledgeDistillationModel.load_from_checkpoint(model_path, teacher_model=teacher_model, config=config, vocab=vocab, pretrained_student_path=config["pretrained_student_path"])
     elif config["teacher_finetuning"]:
         model = FineTuneTeacherModel.load_from_checkpoint(model_path,
                     config=config,           

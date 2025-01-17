@@ -12,7 +12,7 @@ from torchvision.models import ResNet18_Weights, ResNet34_Weights, ResNet50_Weig
 from torchvision.transforms import v2
 
 from dataset import Flickr30k, make_collater, COCORo
-from model import Baseline, FineTuneTeacherModel, KnowledgeDistillationModel
+from model_2 import Baseline, FineTuneTeacherModel, KnowledgeDistillationModel
 from utils import create_vocab_flickr30k, create_vocab_cocoro
 from transformers import AutoProcessor, AutoModelForCausalLM
 
@@ -137,5 +137,5 @@ if __name__ == "__main__":
 
     logger, callbacks = init_logging(config["model_name"])
 
-    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks, val_check_interval=1.0)
+    trainer = L.Trainer(max_epochs=config["epochs"], logger=logger, callbacks=callbacks, val_check_interval=1.0)#, accelerator="cpu")
     trainer.fit(model, train_dl, val_dl)
