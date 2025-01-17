@@ -185,10 +185,10 @@ class ModelInfer():
             "lstm": [
                 r"..\outputs\ro_lstm_256_512_2_0.315_13_30\ckpts\model-epoch=03.ckpt",
                 ro_vocab, config_lstm],
-            "transformer": [
+            "transformer_1": [
                 r"..\outputs\ro_transf_256_512_2_0.3\ckpts\model-epoch=12.ckpt",
                 ro_vocab, config_transf],
-            "transformer_zero_shot": [
+            "transformer_2": [
                 r"..\outputs\ro_transformer_256_512_2_0.315_23_34\ckpts\model-epoch=14.ckpt",
                 ro_vocab, config_transf],
             "transformer_transfer_lr": [
@@ -218,7 +218,7 @@ class ModelInfer():
                 r"../outputs/git_teacher/ckpts/model-epoch=06.ckpt",
                 en_vocab, config_teacher],
             "distiled": [
-                r"../outputs/distilled_model/ckpts/model-epoch=02.ckpt",
+                r"../outputs/distilled_pretrained_child_teacher/distilled_from_pretrained17_12_01/ckpts/model-epoch=04.ckpt",
                 en_vocab, config_distil],
         }
 
